@@ -25,7 +25,7 @@ case object Zero extends View
 
 case object One extends View
 
-case class Node(x: Variable, lo: Bdd, hi:Bdd) extends View
+case class Node(val v: Variable, val lo: Bdd, val hi:Bdd) extends View
 {
 }
 
@@ -49,66 +49,73 @@ object Gentag {
 }
 
 class Table {
-  val table = ArrayBuffer[ArrayBuffer[Option[Bdd]]]()
-  var totalSize: Int = 0
-  var limit: Int = 0
+  // The original implementation in OCaml uses array of weak pointers
+  // that are dynamically reallocated. 
+  // Here we use array buffer for simplicity. 
+  val table = ArrayBuffer[ArrayBuffer[Bdd]]()
+
+  // Iterate over all entries in the 2-D table
+  def iter(f: Bdd=>Unit, t: Table) {
+    table.foreach{ row =>
+      row.foreach { v => f(v) }
+    }
+  }
+
+  def count() = {
+    var i = 0
+    table.foreach { row =>
+      i += row.length
+                 }
+    i
+  }
+
+  private def addNodeAtRow(d:Bdd, index:Int) {
+    // Insert the bdd node at the corresponding index in the
+    // table. 
+    table(index).append(d)
+  }
+
+  def addNode(d:Bdd) {
+    // Compute hash code and use it modulo table length
+    // as the index of the entry
+    addNodeAtRow(d, Hash(d.node) % table.length)
+  }
+  
+  def hashConsNode(v: Variable, l: Bdd, h: Bdd) = {
+    val index = Hash.hash_node(l,h) % table.length
+    val bucket = table(index)
+    val d = bucket.find( _ match {
+      case Bdd(_,Node(va, lo, hi)) =>
+	(va==v) &&(lo == l) && (hi == h)
+    })
+    if (d.isEmpty) {
+      val newNode = Bdd(Gentag(), Node(v, lo=l, hi=h))
+      bucket.append(newNode)
+      newNode
+    } else {
+      // Return the entry in the hash table
+      d.get
+    }
+  }
+
 }
 
 object Table {
   // Factory method for table
   def apply(size:Int) = {
     val sz = if (size<7) 7 else size
-    val emptyBucket = ArrayBuffer[Bdd]()
     val table = new Table()
 
-    // Note that emptyBucket is shared among the table rows
     for (i <- 1 to sz) {
-      table.table +=  emptyBucket
+      table.table +=  ArrayBuffer[Bdd]()
     }
 
-    table.totalSize = sz
-    table.limit = 3
     table
   }
 }
 
 object Utils {
-  // Iterate over all entries in the 2-D table
-  def iter(f: Bdd=>Unit, t: Table) {
-    t.table.foreach{ row =>
-      row.foreach { v =>
-        v match {
-          case Some(x) => f(v)
-          case None => ()
-        }
-      }
-    }
-  }
-
-  def count(t:Table) = {
-    var i = 0
-    t.table.foreach { row =>
-      row.foreach { v =>
-        v match {
-          case Some(x) => i+=1
-          case None => ()
-        }
-                 }
-                   }
-    i
-  }
-
   def nextSz(n:Int) = 3*n/2 +3
   
-  def add_entry_at_index(t:Table, d:Bdd, index:Int) {
-    // Insert the bdd node at the corresponding entry in the
-    // table. 
-  }
-  def add_entry(t:Table, d:Bdd) {
-    // Compute hash code and use it modulo table length
-    // as the index of the entry
-    add_entry_at_index(t, d, Hash(d.node) % t.table.length)
-  }
-  
-  
+
 }
