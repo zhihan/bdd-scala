@@ -9,7 +9,8 @@
 
 package my.bdd
 
-import scala.math._ // abs, min, mod
+import scala.math._ // abs, min, mod, pow
+import scala.util.Random
 import scala.collection.mutable.ArrayBuffer // array
 import scala.collection.mutable.HashMap 
 import scala.collection.mutable.HashSet
@@ -265,6 +266,22 @@ object Eval {
 
 }
 
+final class BddIdentity(val me: Bdd) {
+  // Original OCaml implementation defines a struct for identifying
+  // BDD identities. This implementation uses a wrapper object.
+
+  // This object uses custom hash code for memorization. 
+  override def equals(other: Any) = {
+    other match {
+      case that: BddIdentity => (me == that.me)
+        case _ => false
+    }
+  }
+  
+  override def hashCode: Int = {
+    me.tag
+  }
+}
 
 object Factory{
   val zero = Bdd(0, Zero)
@@ -303,31 +320,15 @@ object Factory{
     mk(v, zero, one)
   }
 
-  final class BddIdentity(val me: Bdd) {
-    // Original OCaml implementation defines a struct for identifying
-    // BDD identities. This implementation uses a wrapper object.
-
-    // This object uses custom hash code for memorization. 
-    override def equals(other: Any) = {
-      other match {
-        case that: BddIdentity => (me == that.me)
-        case _ => false
-      }
-    }
-    
-    override def hashCode: Int = {
-      me.tag
-    }
-  }
 
   object NotFactory {
     // Factory a Bdd from not expression
     val cache = HashMap[BddIdentity, Bdd]()
-    def clearCache() {
+    def clearCache {
       cache.clear()
     }
 
-    def apply(x:Bdd): Bdd = {
+    private def apprec(x:Bdd): Bdd = {
       val identity = new BddIdentity(x)
       if (cache.contains(identity)) {
         cache(identity)
@@ -335,11 +336,15 @@ object Factory{
         val res = x.node match {
           case Zero => one
           case One => zero
-          case Node(v, l, h) => mk(v, apply(l), apply(h))
+          case Node(v, l, h) => mk(v, apprec(l), apprec(h))
         }
         cache(identity) = res
         res
       }
+    }
+    def apply(x:Bdd): Bdd = {
+      clearCache
+      apprec(x)
     }
   }
   
@@ -364,11 +369,16 @@ object Factory{
     // Factory a Bdd from logical operators
     val cache = HashMap[BddPair, Bdd]()
 
-    def clearCache() {
+    def clearCache {
       cache.clear()
     }
 
-    def apply(a:Bdd, b:Bdd):Bdd = {
+    def apply(a:Bdd, b:Bdd) = {
+      clearCache
+      apprec(a,b)
+    }
+
+    private def apprec(a:Bdd, b:Bdd):Bdd = {
       if (hasConcreteValue(a)) {
         Eval.symbolic(op, fromSymbol(a), b)
       } else if(hasConcreteValue(b)) {
@@ -385,17 +395,17 @@ object Factory{
           val bVar = Util.getVar(b)
           val res = if (aId == bId) {
             mk(aVar, 
-               apply(Util.low(a), Util.low(b)), 
-               apply(Util.high(a), Util.high(b)))
+               apprec(Util.low(a), Util.low(b)), 
+               apprec(Util.high(a), Util.high(b)))
           } else if (aId < bId) {
             mk(aVar, 
-               apply(Util.low(a), b),
-               apply(Util.high(a), b))
+               apprec(Util.low(a), b),
+               apprec(Util.high(a), b))
           } else {
             // aId > bId
             mk(bVar,
-               apply(a, Util.low(b)),
-               apply(a, Util.high(b)))
+               apprec(a, Util.low(b)),
+               apprec(a, Util.high(b)))
           }
           cache(identity) =res
           res
@@ -414,4 +424,64 @@ object Factory{
     andFactory.clearCache
     orFactory.clearCache
   }
+}
+
+object Sat {
+  def isSat(b: Bdd) = b.node != Zero
+  def isTautology(b: Bdd) = b.node == One
+
+  def countSat(bb:Bdd) = {
+    val cache = HashMap[BddIdentity,BigInt]()
+    def count(b:Bdd):BigInt = {
+      val identity = new BddIdentity(b)
+      if (cache.contains(identity)) {
+	cache(identity)
+      } else {
+	val n = b.node match {
+	  case Zero => BigInt(0)
+	  case One => BigInt(1)
+	  case Node(v,l,h) => {
+	    val dvl = Util.getId(l) - v.id -1
+	    val dvh = Util.getId(h) - v.id -1
+	    BigInt(2).pow(dvl) * count(l) + BigInt(2).pow(dvh)*count(h)
+	  }
+	}
+	cache(identity) = n
+	n
+      }
+    }
+    count(bb)
+  } 
+
+  def randomSat(b:Bdd) = {
+    val res = ArrayBuffer[(Int,Boolean)]()
+    val ran = new Random()
+    def walk(x:Bdd) {
+      x.node match {
+	case Zero => throw new RuntimeException("not found")
+	case One => Unit
+	case Node(v, Bdd(_,Zero), h) => {
+	  res.append((v.id, true))
+	  walk(h)
+	}
+	case Node(v, l, Bdd(_,Zero)) => {
+	  res.append((v.id, false))
+	  walk(l)
+	}
+	case Node(v, l, h) => {
+	  if (ran.nextBoolean()) {
+	    res.append((v.id, false))
+	    walk(l)
+	  } else {
+	    res.append((v.id, true))
+	    walk(h)
+	  }
+	}
+      }
+    }
+    walk(b)
+    res.toList
+  }
+    
+
 }

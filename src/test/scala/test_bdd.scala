@@ -42,6 +42,16 @@ class Suite extends FunSuite {
 
   }
 
+  test("Sat") {
+    VarTables.setMaxVar(10,10)
+    val x = Factory.mkVar(Variable(0))
+    assert(Sat.isSat(x))
+
+    val xNot = Factory.mkNot(x)
+    assert(!Sat.isSat(Factory.mkAnd(x,xNot)))
+    assert(Sat.isTautology(Factory.mkOr(x,xNot)))
+  }
+
   test("Regular bdds") {
     VarTables.setMaxVar(10,10)
     val x1 = Factory.mkVar(Variable(0))
@@ -56,5 +66,22 @@ class Suite extends FunSuite {
     // println("x0 and x1")
     // println(Util.writeGraphviz(f))
     
+  }
+
+  test("Sat count") {
+    VarTables.setMaxVar(2,2)
+    val x1 = Factory.mkVar(Variable(0))
+    val x2 = Factory.mkVar(Variable(1))
+    val f = Factory.mkOr(x1, x2)
+    assert(Sat.countSat(f)==BigInt(3))
+  }
+
+  test("Random sat") {
+    VarTables.setMaxVar(2,2)
+    val x1 = Factory.mkVar(Variable(0))
+    val x2 = Factory.mkVar(Variable(1))
+    val f = Factory.mkAnd(x1, x2)
+    val s = Sat.randomSat(f)
+    assert(s.length == 2)
   }
 }
