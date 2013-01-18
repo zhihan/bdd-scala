@@ -1,10 +1,9 @@
-/*
- This scala library is written based on the ML library for BDD written by 
- Jean-Christophe Filliatre. 
-
- There are internal BDD packages written by MathWorks employee but this one
- is much simplier in its style.
-
+/**
+ * Binary Decision Diagram
+ * 
+ * This scala library is written based on the OCaml implementation of
+ * BDD written by Jean-Christophe Filliatre.
+ *  - http://www.lri.fr/~filliatr/
 */
 
 package my.bdd
@@ -15,17 +14,14 @@ import scala.collection.mutable.ArrayBuffer // array
 import scala.collection.mutable.HashMap 
 import scala.collection.mutable.HashSet
 
-abstract class View 
-
+/** A variable is identified by its level in the variable order.*/
 case class Variable(id: Int)
 {
   if (id<0) throw new RuntimeException("Invalid id")
 }
 
-case class Bdd(val tag: Int, val node: View)
-{
-  def view = node
-}
+/** A view is either a terminal node or a regular node */
+abstract class View 
 
 case object Zero extends View
 
@@ -35,6 +31,14 @@ case class Node(val v: Variable, val lo: Bdd, val hi:Bdd) extends View
 {
 }
 
+/** A BDD node has an id tag and a view */
+case class Bdd(val tag: Int, val node: View)
+{
+  def view = node
+}
+
+/** A simple function to hash the Bdd nodes based on the tag of
+ * their low and high nodes.*/
 object Hash {
   def hash_node(lo:Bdd, hi:Bdd) = abs(19 * lo.tag + hi.tag)
   def apply(v:View) = { 
@@ -46,6 +50,7 @@ object Hash {
   }
 } 
 
+/** Tag generator that generates a unique tag id. */
 object Gentag {
   // Initialize 
   var r = 1
@@ -60,6 +65,8 @@ object Gentag {
   }
 }
 
+/** A Hash table for the Bdd nodes for a given variable.
+ * For simplicity the Bdd nodes were never cleared of memory. */
 class Table(size:Int) {
   // The original implementation in OCaml uses array of weak pointers
   // that are dynamically reallocated. 
@@ -177,6 +184,7 @@ object VarTables {
   def apply(v: Variable) = varTable(v.id)
 }
 
+/** Utlitity functions for accessing fields */
 object Util {
   
   def getId(d:Bdd) = {
@@ -235,14 +243,22 @@ object Util {
 }
 
 sealed abstract class LogicalOperator
+
+/** Logical And operator && */
 case object And extends LogicalOperator
+
+/** Logical Or operator || */
 case object Or extends LogicalOperator
+
+/** If-then-else operator: a -> b */
+case object Imply extends LogicalOperator
 
 object Eval {
   def concrete(op:LogicalOperator, a:Boolean, b:Boolean) = {
     op match {
       case And => a && b
       case Or => a || b
+      case Imply => (!a) || b
     }
   }
 
@@ -254,6 +270,9 @@ object Eval {
       case Or => {
         if (a) Factory.one else b
       }
+      case Imply => {
+	if (!a) Factory.one else b
+      }
     }
   }
 
@@ -261,6 +280,7 @@ object Eval {
     op match {
       case And => if (!b) Factory.zero else a
       case Or => if (b) Factory.one else a
+      case Imply => if (b) Factory.one else Factory.mkNot(a)
     }
   }
 
@@ -419,17 +439,23 @@ object Factory{
   val orFactory = new OpFactory(Or)
   def mkOr(a:Bdd, b:Bdd) = orFactory(a,b)
 
+  val implyFactory = new OpFactory(Imply)
+  def mkImply(a:Bdd, b:Bdd) = implyFactory(a,b)
+
   def reset() {
     NotFactory.clearCache
     andFactory.clearCache
     orFactory.clearCache
+    implyFactory.clearCache
   }
 }
 
+/** Satisfiability computation */
 object Sat {
   def isSat(b: Bdd) = b.node != Zero
   def isTautology(b: Bdd) = b.node == One
 
+  /** Compute the number of different Sat assignments. */
   def countSat(bb:Bdd) = {
     val cache = HashMap[BddIdentity,BigInt]()
     def count(b:Bdd):BigInt = {
@@ -453,6 +479,7 @@ object Sat {
     count(bb)
   } 
 
+  /** Randomly walk the BDD and generate a SAT assignment. */
   def randomSat(b:Bdd) = {
     val res = ArrayBuffer[(Int,Boolean)]()
     val ran = new Random()
@@ -482,6 +509,4 @@ object Sat {
     walk(b)
     res.toList
   }
-    
-
 }

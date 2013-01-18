@@ -40,6 +40,12 @@ class Suite extends FunSuite {
     val x3 = Factory.mkOr(x, xNot)
     assert(x3 == Factory.one)
 
+    val x4 = Factory.mkImply(x, x)
+    assert(x4 == Factory.one)
+
+    val x5 = Factory.mkImply(x, xNot)
+    assert(x5 == xNot)
+
   }
 
   test("Sat") {
