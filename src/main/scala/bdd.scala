@@ -128,14 +128,21 @@ class Table(size:Int) {
     }
   }
 
+  // Fix for JAVA's modulus function 
+  private def posMod(i:Int, n:Int) = {
+    val m = i % n
+    if (m<0) m+n else m
+  }
+  
+
   def addNode(d:Bdd) {
     // Compute hash code and use it modulo table length
     // as the index of the entry
-    addNodeAtRow(d, Hash(d.node) % table.length)
+    addNodeAtRow(d, posMod(Hash(d.node), table.length))
   }
   
   def hashConsNode(v:Variable, l: Bdd, h: Bdd) = {
-    val index = Hash.hash_node(l,h) % table.length
+    val index = posMod(Hash.hash_node(l,h) , table.length)
     val bucket = table(index)
     val d = bucket.find( _ match {
       case Bdd(_,Node(va, lo, hi)) =>
