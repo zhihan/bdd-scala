@@ -6,7 +6,7 @@
  *  - http://www.lri.fr/~filliatr/
 */
 
-package my.bdd
+package me.zhihan.bdd
 
 import scala.math._ // abs, min, mod, pow
 import scala.util.Random

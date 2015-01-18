@@ -1,9 +1,6 @@
-package test.bdd
-
-import my.bdd._
+package me.zhihan.bdd
 
 import org.scalatest.FunSuite 
-
 
 class Suite extends FunSuite {
   test("Constant Not") {
