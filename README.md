@@ -1,6 +1,6 @@
 bdd-scala
 =========
-[![Build Status](https://travis-ci.org/zhihan/bdd-scala.svg?branch=master)]
+![Build Status](https://travis-ci.org/zhihan/bdd-scala.svg?branch=master)
 
 This is a small scala library implementing Binary Decision Diagram. It is based on
 the OCaml implementation of BDD, written by Jean-Christophe Filliatre.
