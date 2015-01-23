@@ -7,11 +7,10 @@ class Suite extends FunSuite {
     VarTables.setMaxVar(10,10)
     
     val one = Factory.mkNot(Factory.zero)
-    assert( one == Factory.one)
+    assert(one == Factory.one)
 
     val zero = Factory.mkNot(Factory.one)
-    assert( zero == Factory.zero)
-
+    assert(zero == Factory.zero)
   }
 
   test("Variable Not") {
